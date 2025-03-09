@@ -1,0 +1,120 @@
+import random
+import requests
+import sqlite3
+from collections import Counter
+from rich.console import Console
+from rich.table import Table
+
+try:
+    import sentencepiece as spm
+    sp = spm.SentencePieceProcessor(model_file='arabic_tokenizer.model')
+    def advanced_sentence_tokenizer(text):
+        return sp.encode_as_pieces(text)
+except ModuleNotFoundError:
+    sp = None
+    def advanced_sentence_tokenizer(text):
+        return text.split()
+
+console = Console()
+
+class Brainium:
+    def __init__(self):
+        self.db_init()
+        self.custom_sources = {}
+        self.mission = "أنا نموذج لغوي عالمي يستلهم من القصص الإسلامية والإنسانية، ويستقي العبر من الماضي ليُرشد الحاضر نحو مستقبلٍ أفضل."
+        self.human_values = self.load_human_values()
+    
+    def db_init(self):
+        self.conn = sqlite3.connect("brainium.db")
+        self.cursor = self.conn.cursor()
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS memory (
+                topic TEXT,
+                info TEXT,
+                source TEXT
+            )
+        """)
+        self.conn.commit()
+    
+    def load_human_values(self):
+        return {
+            "العدالة": "تحقيق التوازن والإنصاف.",
+            "الرحمة": "إظهار اللطف والتسامح.",
+            "الكرامة": "احترام حقوق الإنسان.",
+            "الصدق": "قول الحقيقة والالتزام بها.",
+            "التسامح": "القدرة على تقبل الآخرين برحابة صدر.",
+            "التعاون": "العمل المشترك لتحقيق الأهداف."
+        }
+    
+    def learn(self, topic, info, source=None):
+        self.cursor.execute("INSERT INTO memory (topic, info, source) VALUES (?, ?, ?)", (topic, info, source))
+        self.conn.commit()
+    
+    def recall(self, topic, random_insight=False):
+        self.cursor.execute("SELECT info, source FROM memory WHERE topic=?", (topic,))
+        rows = self.cursor.fetchall()
+        
+        if rows:
+            if random_insight:
+                insight = random.choice(rows)[0]
+                return f"رؤية عشوائية حول {topic}: {insight}"
+            
+            insights = [f"- {info} (المصدر: {source})" if source else f"- {info}" for info, source in rows]
+            return "رؤى حول " + topic + "\n" + "\n".join(insights)
+        
+        return "لم يتم العثور على رؤى حول " + topic
+    
+    def extract_human_values(self, text):
+        extracted_values = [value for value in self.human_values.keys() if value in text]
+        if extracted_values:
+            return "\n".join([f"{value}: {self.human_values[value]}" for value in extracted_values])
+        return "لم يتم الكشف عن قيم إنسانية بارزة."
+    
+    def ask_question(self, question):
+        self.cursor.execute("SELECT topic, info FROM memory")
+        knowledge_base = self.cursor.fetchall()
+        
+        responses = [info for topic, info in knowledge_base if question.lower() in topic.lower() or question.lower() in info.lower()]
+        
+        if responses:
+            return random.choice(responses)
+        else:
+            return "لا أملك إجابة مباشرة على هذا السؤال، لكن يمكنني مساعدتك في استكشافه."
+
+def main():
+    brainium = Brainium()
+    
+    while True:
+        console.print("\n[bold cyan]اختر خيارًا:[/bold cyan]")
+        console.print("1. إضافة معرفة جديدة")
+        console.print("2. استرجاع المعرفة")
+        console.print("3. استخراج القيم الإنسانية")
+        console.print("4. طرح سؤال مفتوح")
+        console.print("5. خروج")
+        
+        choice = input("\n[bold yellow]أدخل الخيار: [/bold yellow]")
+        
+        if choice == "1":
+            topic = input("أدخل الموضوع: ")
+            info = input("أدخل المعلومات: ")
+            source = input("أدخل المصدر (اختياري): ")
+            brainium.learn(topic, info, source)
+            console.print("[green]تمت إضافة المعرفة بنجاح![/green]")
+        elif choice == "2":
+            topic = input("أدخل الموضوع: ")
+            random_insight = input("هل ترغب في رؤية معلومة عشوائية؟ (نعم/لا): ") == "نعم"
+            console.print(brainium.recall(topic, random_insight))
+        elif choice == "3":
+            text = input("أدخل النص لتحليل القيم الإنسانية: ")
+            console.print(brainium.extract_human_values(text))
+        elif choice == "4":
+            question = input("اكتب سؤالك المفتوح: ")
+            console.print(brainium.ask_question(question))
+        elif choice == "5":
+            console.print("[red]خروج...[/red]")
+            break
+        else:
+            console.print("[bold red]خيار غير صالح، حاول مرة أخرى.[/bold red]")
+
+if __name__ == "__main__":
+    main()
